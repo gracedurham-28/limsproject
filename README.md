@@ -1,7 +1,7 @@
 Clone the repository 
 ```
 git clone https://github.com/gracedurham-28/limsproject.git
-cd limsproject/appsett
+cd /Users/gracedurhamlimsproject
 ```
 Set up the virtual environment 
 ```
