@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory List{% endblock %}
+
+{% block content %}
+<h1>Inventory List</h1>
+<p>This page shows the current lab inventory. Note: prepared solutions are tracked separately on the "Solutions" page.</p>
+
+<p>Total items: {{ items.count }}</p>
+
+
+<style>
+.inventory-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1em;
+}
+.inventory-table th, .inventory-table td {
+    border: 1px solid #333;
+    padding: 8px 10px;
+    text-align: left;
+}
+.inventory-table th {
+    background-color: #0492c2; /* Light blue */
+    color: #fff;               /* White text */
+}
+.inventory-table tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+/* Keep .low-stock style available but it's no longer applied to whole rows */
+.low-stock {
+    background-color: #fab3b3 !important; /* Light red for low stock items */
+}
+
+/* Small badge for explicit per-row reorder indicator */
+.reorder-flag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #ffb74d; /* amber */
+    color: #2f2f2f;
+    font-size: 0.85em;
+}
+
+/* Make predicted-needed area easier to read */
+.predicted-display {
+    font-weight: 600;
+    font-size: 1rem; /* slightly larger */
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #f5f9ff;
+    color: #0b4470;
+    min-width: 100px;
+    text-align: center;
+}
+
+.plan-controls {
+    gap: 10px;
+}
+.plan-controls .plan-input {
+    padding: 8px 10px;
+    font-size: 1rem;
+    width: 120px; /* increased width */
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.plan-controls .plan-students {
+    width: 110px;
+}
+
+.plan-controls .plan-units {
+    width: 140px; /* wider for units/reaction text */
+}
+
+.plan-controls .plan-save {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    background: #0492c2;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+.plan-controls .plan-save:hover {
+    background: #037aa8;
+}
+
+/* ensure amount cell highlight still visible */
+.col-amount.low-stock {
+    background-color: #f8d7da !important;
+}
+
+@media (max-width: 900px) {
+    .plan-controls .plan-input { width: 90px; }
+    .plan-controls .plan-units { width: 100px; }
+    .predicted-display { min-width: 72px; }
+}
+</style>
+
+<table class="inventory-table">
+    <tr>
+        <th>Item Name</th>
+        <th>SKU</th>
+        <th>Vendor</th>
+        <th>Location</th>
+        <th>Sub-Location</th>
+        <th>Location Detail</th>
+        <th>Amount in Stock</th>
+        <th>Units</th>
+        <th>Predicted Needed</th>
+        <th>Reorder Level</th>
+        <th>Vendor Qty</th>
+        <th>Date Opened</th>
+        <th>Expiration Date</th>
+        <th>Storage Temperature</th>
+        <th>Storage Instructions</th>
+        <th>Notes</th>
+        <th>URL</th>
+    </tr>
+
+    {% for item in items %}
+  <tr data-item-id="{{ item.id }}">
+    <td>{{ item.item_name|default_if_none:"" }}</td>
+    <td>{{ item.sku|default_if_none:"" }}</td>
+    <td>{{ item.vendor|default_if_none:"" }}</td>
+    <td>{{ item.location|default_if_none:"" }}</td>
+    <td>{{ item.sub_location|default_if_none:"" }}</td>
+    <td>{{ item.location_detail|default_if_none:"" }}</td>
+    {% if item.computed_low_stock %}
+      <td class="col-amount low-stock" data-amount="{{ item.amount_in_stock|default_if_none:'0' }}">{{ item.amount_in_stock|default_if_none:"0" }}</td>
+    {% else %}
+      <td class="col-amount" data-amount="{{ item.amount_in_stock|default_if_none:'0' }}">{{ item.amount_in_stock|default_if_none:"0" }}</td>
+    {% endif %}
+    <td>{{ item.units|default_if_none:"" }}</td>
+    <td title="Predicted need based on planned reactions">
+      {% if item.predicted_needed %}
+        <span class="predicted-display">{{ item.predicted_needed }}{% if item.units %} {{ item.units }}{% endif %}</span>
+      {% else %}
+        <span class="predicted-display">&mdash;</span>
+      {% endif %}
+      <div class="plan-controls" style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        <input type="number" class="plan-input plan-planned" placeholder="#" value="{% if item.planned_reactions %}{{ item.planned_reactions }}{% endif %}" />
+        <input type="number" class="plan-input plan-students" placeholder="students" value="{% if item.students_per_reaction %}{{ item.students_per_reaction }}{% endif %}" />
+        <input type="number" step="0.01" class="plan-input plan-units" placeholder="units/reaction" value="{% if item.units_per_reaction %}{{ item.units_per_reaction }}{% endif %}" />
+        <button type="button" class="plan-save">Save</button>
+      </div>
+    </td>
+    {# show computed effective value, tooltip shows predicted_needed when available or marks as computed #}
+    <td title="Predicted needed: {{ item.predicted_needed|default_if_none:'(computed)' }}">
+      {% if item.computed_reorder %}
+        {{ item.computed_reorder }}
+      {% else %}
+        {{ item.effective_reorder_level }}
+      {% endif %}
+    </td>
+    <td>{{ item.vendor_qty|default_if_none:"" }}</td>
+    <td>{{ item.date_opened|default_if_none:"" }}</td>
+    <td>{{ item.expiration_date|default_if_none:"" }}</td>
+    <td>{{ item.storage_temperature|default_if_none:"" }}</td>
+    <td>{{ item.storage_instructions|default_if_none:"" }}</td>
+    <td>{{ item.notes|default_if_none:"" }}</td>
+    <td>
+      {% if item.url %}
+        <a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.url }}</a>
+      {% else %}
+        {{ "" }}
+      {% endif %}
+    </td>
+</tr>
+    {% empty %}
+    <tr>
+        <td colspan="18">No inventory items found.</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<script>
+// simple CSRF helper
+function getCookie(name) {
+  const v = document.cookie.split('; ').find(row => row.startsWith(name + '='));
+  if (v) return decodeURIComponent(v.split('=')[1]);
+  // fallback: look for a meta tag if templates include one
+  const meta = document.querySelector('meta[name="csrf-token"]') || document.querySelector('meta[name="csrfmiddlewaretoken"]');
+  if (meta) return meta.getAttribute('content');
+  return null;
+}
+const csrftoken = getCookie('csrftoken');
+
+function ensureCsrf() {
+  if (!csrftoken) {
+    alert('CSRF token not found. Please reload the page or log in again.');
+    return false;
+  }
+  return true;
+}
+
+// Create and show a modal dialog for stock change. Returns a Promise that
+// resolves to an object {delta: number, notes: string} or null if cancelled.
+function showChangeModal(itemName, current) {
+  return new Promise((resolve) => {
+    // overlay
+    const overlay = document.createElement('div');
+    overlay.style.position = 'fixed';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.background = 'rgba(0,0,0,0.4)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '9999';
+
+    // modal box
+    const box = document.createElement('div');
+    box.style.background = '#fff';
+    box.style.padding = '18px';
+    box.style.borderRadius = '8px';
+    box.style.width = '420px';
+    box.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)';
+    box.style.fontFamily = 'Arial, sans-serif';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', `Change stock for ${itemName}`);
+
+    // Large item title
+    const title = document.createElement('h2');
+    title.textContent = itemName;
+    title.style.margin = '0 0 8px 0';
+    title.style.fontSize = '1.25rem';
+
+    const currentP = document.createElement('div');
+    currentP.textContent = `Current stock: ${current}`;
+    currentP.style.marginBottom = '10px';
+    currentP.style.color = '#333';
+
+    // delta input
+    const deltaLabel = document.createElement('label');
+    deltaLabel.textContent = 'Change (use negative to subtract):';
+    deltaLabel.style.display = 'block';
+    deltaLabel.style.fontSize = '0.95rem';
+    deltaLabel.style.marginBottom = '4px';
+
+    const deltaInput = document.createElement('input');
+    deltaInput.type = 'number';
+    deltaInput.value = '-1';
+    deltaInput.style.width = '100%';
+    deltaInput.style.padding = '8px';
+    deltaInput.style.marginBottom = '10px';
+    deltaInput.style.boxSizing = 'border-box';
+    deltaInput.setAttribute('aria-label', 'Stock change');
+
+    // notes textarea
+    const notesLabel = document.createElement('label');
+    notesLabel.textContent = 'Notes (optional):';
+    notesLabel.style.display = 'block';
+    notesLabel.style.marginBottom = '4px';
+
+    const notesInput = document.createElement('textarea');
+    notesInput.rows = 3;
+    notesInput.style.width = '100%';
+    notesInput.style.padding = '8px';
+    notesInput.style.boxSizing = 'border-box';
+    notesInput.style.marginBottom = '12px';
+    notesInput.setAttribute('aria-label', 'Notes for change');
+
+    // buttons
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.justifyContent = 'flex-end';
+    btnRow.style.gap = '8px';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.className = 'button';
+    cancelBtn.style.padding = '6px 12px';
+    cancelBtn.setAttribute('aria-label', 'Cancel');
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.textContent = 'Submit';
+    submitBtn.className = 'button btn-primary';
+    submitBtn.style.padding = '6px 12px';
+    submitBtn.setAttribute('aria-label', 'Submit change');
+
+    btnRow.appendChild(cancelBtn);
+    btnRow.appendChild(submitBtn);
+
+    box.appendChild(title);
+    box.appendChild(currentP);
+    box.appendChild(deltaLabel);
+    box.appendChild(deltaInput);
+    box.appendChild(notesLabel);
+    box.appendChild(notesInput);
+    box.appendChild(btnRow);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    function cleanUp() {
+      document.body.removeChild(overlay);
+      document.removeEventListener('keydown', onKey);
+    }
+
+    function onCancel() {
+      cleanUp();
+      resolve(null);
+    }
+
+    async function onSubmit() {
+      const delta = parseInt(deltaInput.value, 10);
+      if (isNaN(delta)) { alert('Please enter a valid integer change.'); return; }
+      const notes = notesInput.value || '';
+      // disable submit to avoid double submits
+      submitBtn.disabled = true;
+      submitBtn.setAttribute('aria-disabled', 'true');
+      const origText = submitBtn.textContent;
+      submitBtn.textContent = 'Submitting...';
+      try {
+        cleanUp();
+        resolve({ delta, notes });
+      } finally {
+        // restore state in case modal remains (defensive)
+        submitBtn.disabled = false;
+        submitBtn.setAttribute('aria-disabled', 'false');
+        submitBtn.textContent = origText;
+      }
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) onSubmit();
+    }
+
+    cancelBtn.addEventListener('click', onCancel);
+    submitBtn.addEventListener('click', onSubmit);
+    document.addEventListener('keydown', onKey);
+
+    // focus input
+    deltaInput.focus();
+  });
+}
+
+// Attach click handler to rows. Use first td as item name.
+document.querySelectorAll('table.inventory-table tr[data-item-id]').forEach(row => {
+  row.style.cursor = 'pointer';
+  row.addEventListener('click', async (e) => {
+    // ignore clicks on links or inside the inline planning controls
+    if (e.target.tagName.toLowerCase() === 'a' || e.target.closest('a') || e.target.closest('.plan-controls')) return;
+
+    const itemId = row.dataset.itemId;
+    const amountCell = row.querySelector('.col-amount');
+    if (!amountCell) return;
+    const current = parseInt(amountCell.dataset.amount || amountCell.textContent || '0', 10);
+
+    const nameCell = row.querySelector('td:nth-child(1)');
+    const itemName = nameCell ? nameCell.textContent.trim() : itemId;
+
+    const result = await showChangeModal(itemName, current);
+    if (!result) return; // cancelled
+
+    const { delta, notes } = result;
+
+    if (!ensureCsrf()) return;
+
+    // disable row interaction while request running
+    row.style.pointerEvents = 'none';
+    try {
+      const resp = await fetch("{% url 'api_update_quantity' %}", {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({ item_id: itemId, delta: delta, notes: notes })
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        amountCell.textContent = data.new_amount;
+        amountCell.dataset.amount = data.new_amount;
+        amountCell.style.transition = 'background-color 0.4s';
+        amountCell.style.backgroundColor = '#d4edda';
+        setTimeout(() => amountCell.style.backgroundColor = '', 700);
+      } else {
+        alert('Error: ' + (data.error || 'unknown'));
+      }
+    } catch (err) {
+      alert('Request failed: ' + err);
+    } finally {
+      row.style.pointerEvents = '';
+    }
+  });
+});
+
+// Plan save handling
+document.querySelectorAll('table.inventory-table tr[data-item-id]').forEach(row => {
+  const saveBtn = row.querySelector('.plan-save');
+  if (!saveBtn) return;
+  saveBtn.setAttribute('aria-label', 'Save plan');
+  const plannedInput = row.querySelector('.plan-planned');
+  const studentsInput = row.querySelector('.plan-students');
+  const unitsInput = row.querySelector('.plan-units');
+  if (plannedInput) plannedInput.setAttribute('aria-label', 'Planned reactions');
+  if (studentsInput) studentsInput.setAttribute('aria-label', 'Students per reaction');
+  if (unitsInput) unitsInput.setAttribute('aria-label', 'Units per reaction');
+
+  saveBtn.addEventListener('click', async (e) => {
+    e.stopPropagation(); // don't trigger row click
+    const itemId = row.dataset.itemId;
+    const planned = plannedInput.value;
+    const students = studentsInput.value;
+    const unitsPer = unitsInput.value;
+
+    if (!ensureCsrf()) return;
+
+    // disable save button while request running
+    saveBtn.disabled = true;
+    saveBtn.setAttribute('aria-disabled', 'true');
+    const orig = saveBtn.textContent;
+    saveBtn.textContent = 'Saving...';
+    try {
+      const resp = await fetch("{% url 'api_update_plan' %}", {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({ item_id: itemId, planned_reactions: planned, students_per_reaction: students, units_per_reaction: unitsPer })
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        const predSpan = row.querySelector('.predicted-display');
+        predSpan.textContent = data.predicted ? (data.predicted + (data.units ? (' ' + data.units) : '')) : '—';
+        // highlight if low
+        const amountCell = row.querySelector('.col-amount');
+        if (data.low) {
+          amountCell.classList.add('low-stock');
+        } else {
+          amountCell.classList.remove('low-stock');
+        }
+      } else {
+        alert('Error saving plan: ' + (data.error || 'unknown'));
+      }
+    } catch (err) {
+      alert('Request failed: ' + err);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.setAttribute('aria-disabled', 'false');
+      saveBtn.textContent = orig;
+    }
+  });
+});
+</script>
+
+{% endblock %}
+
+

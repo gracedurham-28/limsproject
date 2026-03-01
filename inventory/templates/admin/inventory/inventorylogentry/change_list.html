@@ -1,0 +1,22 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div class="module" style="margin-bottom:1em;">
+    <form id="run-numb-form" method="get" action="{{ run_numb_url|default:'/run-numb/' }}">
+      {% csrf_token %}
+      <label>Start: <input type="date" name="start" value="{{ run_numb_default_start|default:'' }}"></label>
+      <label>End: <input type="date" name="end" value="{{ run_numb_default_end|default:'' }}"></label>
+      <label>Action:
+        <select name="action">
+          <option value="summary">Summary</option>
+          <option value="aggregate">Aggregate CSV</option>
+          <option value="rows">Raw rows CSV</option>
+        </select>
+      </label>
+      <button type="submit" class="button">Run export</button>
+    </form>
+  </div>
+
+    {{ block.super }}
+{% endblock %}

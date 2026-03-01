@@ -1,0 +1,16 @@
+<nav>
+    <h1>Navigation Bar</h1>
+    <ul>
+        <li><a href="{% url 'inventory_list' %}">Inventory</a></li>
+        <li><a href="{% url 'solutions_list' %}">Solutions</a></li>
+        <li><a href="{% url 'new_order' %}">New Order</a></li>
+        <li><a href="{% url 'usage_history' %}">Usage History</a></li>
+        <li><a href="{% url 'admin_dashboard' %}">Admin Dashboard</a></li>
+        <li>
+            <form method="get" action="{% url 'inventory_search' %}" style="display:inline;">
+                <input type="text" name="q" placeholder="Search items..." value="{{ query }}">
+                <button type="submit">Search</button>
+            </form>
+        </li>
+    </ul>
+</nav>

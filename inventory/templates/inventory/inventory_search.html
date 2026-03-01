@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Search{% endblock %}
+
+{% block content %}
+<h2>Search Results{% if query %} for "{{ query }}"{% endif %}</h2>
+
+<form class="mb-3" method="get" action="{% url 'inventory_search' %}">
+    <input type="text" name="q" placeholder="Search items..." value="{{ query }}" class="form-control">
+    <button type="submit" class="btn btn-primary mt-2">Search</button>
+</form>
+
+{% if results %}
+    <table class="table table-bordered table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Item Name</th>
+                <th>Amount in Stock</th>
+                <th>Units</th>
+                <th>Location</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in results %}
+            <tr>
+                <td>{{ item.item_name }}</td>
+                <td>{{ item.amount_in_stock }}</td>
+                <td>{{ item.units }}</td>   
+                <td>{{ item.location }}</td>
+                <td>{{ item.notes }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    {% if query %}
+        <p class="text-danger">No search match found for "{{ query }}".</p>
+    {% else %}
+        <p>Please enter a search term to find items.</p>
+    {% endif %}
+{% endif %}
+
+{% endblock %}
