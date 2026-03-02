@@ -1,7 +1,7 @@
 Clone the repository 
 ```
 git clone https://github.com/gracedurham-28/limsproject.git
-cd /Users/gracedurhamlimsproject
+cd /Users/gracedurham/limsproject
 ```
 Set up the virtual environment 
 ```
@@ -14,7 +14,6 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 Set up other variables 
-  Copy example .env file 
 ```
 cp .env.example .env
 ```
@@ -31,9 +30,9 @@ Create a superuser (admin)
 ```
 python manage.py createsuperuser
 ```
+follow instructions with making a superuser
 Run
 ```
 python manage.py runserver
 ```
-OR to start the server, run manage_server.py to collect static then run server_gui.py. There will be a popup window to allow for use of the start/stop server buttons. 
-Then go to the server: http://127.0.0.1:8000/admin
+
